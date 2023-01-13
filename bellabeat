@@ -1,0 +1,87 @@
+## packages needed for analysis
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+
+## importing datasets
+library(readr)
+daily_activity <- read_csv("dailyActivity_merged.csv")
+View(daily_activity)
+
+sleep_day <- read_csv("sleepDay_merged.csv")
+View(sleep_day)
+
+## header tibble
+head(daily_activity)
+head(sleep_day)
+
+## separate sleep day and time
+sleep_day[c('ActivityDate', 'Time')] <- str_split_fixed(sleep_day$SleepDay, ' ', 2)
+View(sleep_day)
+
+## merge
+dailyactivity_sleep <- daily_activity %>% inner_join(sleep_day,by=c("Id","ActivityDate"))
+View(dailyactivity_sleep)
+
+## average per ID: total minutes asleep and very active minutes
+dailyactivity_sleep_av <- dailyactivity_sleep %>%
+  group_by(Id) %>%
+  summarise(TotalMinutesAsleep_av=mean(TotalMinutesAsleep),
+          VeryActiveMinutes_av=mean(VeryActiveMinutes))
+View(dailyactivity_sleep_av)
+
+## plot of relationship between means: total minutes asleep and very active minutes
+ggplot(data = dailyactivity_sleep_av) + geom_smooth(mapping=aes(x=TotalMinutesAsleep_av,y=VeryActiveMinutes_av)) + geom_point(mapping=aes(x=TotalMinutesAsleep_av,y=VeryActiveMinutes_av))
+
+## average per ID: total minutes asleep and total steps
+dailysteps_sleep_av <- dailyactivity_sleep %>%
+  group_by(Id) %>%
+  summarise(TotalSteps_av=mean(TotalSteps),
+            TotalMinutesAsleep_av=mean(TotalMinutesAsleep)) 
+View(dailysteps_sleep_av)
+
+## ggplot of relationship between means: total minutes asleep and total steps
+ggplot(data = dailysteps_sleep_av) + geom_smooth(mapping=aes(x=TotalMinutesAsleep_av,y=TotalSteps_av)) + geom_point(mapping=aes(x=TotalMinutesAsleep_av,y=TotalSteps_av))
+
+## average sleep time and average bed time not sleeping
+sleeping_awake1 <- dailyactivity_sleep %>%
+  group_by(Id) %>%
+  summarise(TimeAwake_av=mean(TotalTimeInBed - TotalMinutesAsleep),VeryActiveMinutes_av=mean(VeryActiveMinutes))
+View(sleeping_awake1)
+
+sleeping_awake2 <- sleeping_awake1[-c(3,8),] ## to remove outliers that throw off the data
+View(sleeping_awake2)
+
+## ggplot of relationship between being in bed and very active minutes
+ggplot(data = sleeping_awake2) + geom_smooth(mapping=aes(x=TimeAwake_av, y=VeryActiveMinutes_av)) + geom_point(mapping=aes(x=TimeAwake_av, y=VeryActiveMinutes_av))
+
+## average sleep time and average sedentary minutes
+sedent_sleep <- dailyactivity_sleep %>%
+  group_by(Id) %>%
+  summarize(TotalMinutesAsleep_av=mean(TotalMinutesAsleep), SedentaryMinutes_av=mean(SedentaryMinutes))
+View(sedent_sleep)
+
+## ggplot of relationship between sedentary minutes and sleep
+ggplot(data = sedent_sleep) + geom_smooth(mapping=aes(x=TotalMinutesAsleep_av,y=SedentaryMinutes_av)) + geom_point(mapping=aes(x=TotalMinutesAsleep_av,y=SedentaryMinutes_av))
+
+## average minutes of sleep and day of the week
+dailyactivity_sleep$Weekdays <- weekdays(dailyactivity_sleep$ActivityDate)
+
+ggplot(data = sedent_sleep) + geom_smooth(mapping=aes(x=Id,y=TotalMinutesAsleep_av))
+
+## overall sleep average to build the analytics case
+sleepingminutes <- dailyactivity_sleep %>%
+  summarize(TotalMinutesAsleep_trueave=mean(TotalMinutesAsleep))
+glimpse(sleepingminutes)
+
+laying_awake <- dailyactivity_sleep %>%
+  group_by(Id) %>%
+  summarise(TimeAwake_av=mean(TotalTimeInBed - TotalMinutesAsleep),TotalMinutesAsleep_av=mean(TotalMinutesAsleep))
+  View(laying_awake)
+
+## to remove outliers that throw off the data
+laying_awake1 <- laying_awake[-c(3,8),]
+View(laying_awake1)
